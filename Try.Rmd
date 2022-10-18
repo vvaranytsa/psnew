@@ -1,0 +1,306 @@
+---
+editor_options:
+  markdown:
+    wrap: 72
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Probability and Statistics
+
+# Lab Assignment 1: Naive Bayes Classifier
+
+### *Ivan Varanytsia, Yaryna Fialko*
+
+## Introduction
+
+During the past three weeks, you learned a couple of essential notions
+and theorems, and one of the most important among them is the *Bayes
+theorem*.
+
+One of its applications is **Naive Bayes classifier**, which is a
+probabilistic classifier whose aim is to determine which class some
+observation probably belongs to by using the Bayes formula:
+$$\mathsf{P}(\mathrm{class}\mid \mathrm{observation})=\frac{\mathsf{P}(\mathrm{observation}\mid\mathrm{class})\mathsf{P}(\mathrm{class})}{\mathsf{P}(\mathrm{observation})}$$
+
+Under the strong independence assumption, one can calculate
+$\mathsf{P}(\mathrm{observation} \mid \mathrm{class})$ as
+$$\mathsf{P}(\mathrm{observation}) = \prod_{i=1}^{n} \mathsf{P}(\mathrm{feature}_i), \qquad \mathsf{P}(\mathrm{observation} \mid \mathrm{class}) = \prod_{i=1}^{n} \mathsf{P}(\mathrm{feature}_i \mid \mathrm{class}),$$
+where $n$ is the total number of features describing a given
+observation. Thus, $\mathsf{P}(\mathrm{class}|\mathrm{observation})$ now
+can be calculated as
+
+$$\mathsf{P}(\mathrm{class} \mid \mathrm{\mathrm{observation}}) = \mathsf{P}(\mathrm{class})\times \prod_{i=1}^{n}\frac{\mathsf{P}(\mathrm{feature}_i\mid \mathrm{class})}{\mathsf{P}(\mathrm{feature}_i)}\tag{1}$$
+
+All the terms on the right-hand side can be estimated from the data as
+respective relative frequencies;\
+see [this
+site](https://monkeylearn.com/blog/practical-explanation-naive-bayes-classifier/)
+for more detailed explanations.
+
+## Data description
+
+### 11-th team = 1 (mod 5)
+
+-   **1 - discrimination** This data set consists of tweets that have
+    discriminatory (sexism or racism) messages or of tweets that are of
+    neutral mood. The task is to determine whether a given tweet has
+    discriminatory mood or does not.
+
+# *train.csv* is used to build a bag-of-words, while *test.csv* - to see how well the Bayes Classifier works
+
+
+```{r Including packages}
+# here goes a list of recommended libraries,
+# though you may install other ones if they are needed
+
+
+library(tidytext)
+library(readr)
+library(dplyr)
+library(devtools)
+devtools::install_github("lchiffon/wordcloud2")
+library(ggplot2)
+library(RColorBrewer)
+library(wordcloud2)
+```
+
+## Instructions
+
+-   The first step is data pre-processing, which includes removing
+    punctuation marks and stop words
+
+-   represent each message as a bag-of-words
+
+-   using the training set, calculate all the conditional probabilities
+    in formula (1)
+
+-   use those to predict classes for messages in the test set
+
+-   evaluate effectiveness of the classifier by calculating the
+    corresponding metrics
+
+-   shortly summarize your work
+
+-   do not forget to submit both the (compiled) Rmd source file and the .html
+    output
+
+### Data pre-processing
+
+-   Read the *.csv* data files.
+-   Сlear your data from punctuation or other unneeded symbols.
+-   Clear you data from stop words. You don't want words as is, and, or
+    etc. to affect your probabilities distributions, so it is a wise
+    decision to get rid of them. Find list of stop words in the cms
+    under the lab task.
+-   Represent each test message as its bag-of-words. Here:
+    <https://machinelearningmastery.com/gentle-introduction-bag-words-model/>
+    you can find general introduction to the bag-of-words model and
+    examples on to create it.
+-   It is highly recommended to get familiar with R dataframes, it would
+    make the work much easier to do.
+-   Useful links:
+    -   <https://steviep42.github.io/webscraping/book/bagofwords.html#tidytext> -
+        example of using *tidytext* to count frequencies of the words.
+    -   Basics of Text Mining in R:
+        <http://rstudio-pubs-static.s3.amazonaws.com/256588_57b585da6c054349825cba46685d8464.html>
+        . Note that it also includes an example on how to create a bag
+        of words from your text document.
+
+
+
+
+## Linking all needed files and parsing stop words:
+
+```{r Adding stop words}
+test_path <- "data/1-discrimination/test.csv"
+train_path <- "data/1-discrimination/train.csv"
+
+stop_words <- read_file("stop_words.txt")
+splitted_stop_words <- strsplit(stop_words, split = '\n')
+splitted_stop_words <- splitted_stop_words[[1]]
+```
+## Reading files:
+```{r Reading the data}
+train <- read.csv(file = train_path, stringsAsFactors = FALSE)
+test <- read.csv(file = test_path, stringsAsFactors = FALSE)
+```
+
+```{r Cleaning the data}
+# note the power functional features of R bring us!
+tidy_text <- unnest_tokens(train, output = 'word', input = 'tweet') %>%
+  filter(!word %in% splitted_stop_words)
+
+dataframe <- tidy_text %>% count(word, sort = TRUE)
+
+df_labels <- tidy_text %>% count(label, word, sort = TRUE)
+df_discrim <- df_labels %>% filter(label == "discrim")
+df_neutral <- df_labels %>% filter(label == "neutral")
+```
+
+### Data visualization
+
+Each time you work with some data, you need to understand it before you
+start processing it. R has very powerful tools to make nice plots and
+visualization. Show what are the most common words for negative and
+positive examples as a histogram, word cloud etc. Be creative!
+
+
+### TODO - Visualize the most frequent words
+
+
+```{r Helping values}
+discrim_test = test %>% filter(label == "discrim") %>% count(label, tweet, result = 1)
+neutral_test = test %>% filter(label == "neutral") %>% count(label, tweet, result = 1)
+is_discrim = nrow(train %>% filter(label == "discrim")) / nrow(train)
+is_neutral = 1 - is_discrim
+```
+
+
+```{r Class Definition}
+naiveBayes <- setRefClass("naiveBayes",
+
+                          # d_test - for discrimination tweets
+                          # n_test - for neutral tweets
+                          fields = list(d_test = "data.frame", n_test = "data.frame"),
+
+                          methods = list(
+                            fit = function()
+                            {
+                              for (row in 1:nrow(neutral_test)) {
+                                value = predict(neutral_test[row, ])
+                                  if (value == 0){
+                                  neutral_test[row, "result"] = 0
+                                  }
+                              }
+                              for (row in 1:nrow(discrim_test)) {
+                                value = predict(discrim_test[row, ])
+                                 if(value == 1){             
+                                  discrim_test[row, "result"] = 0
+                               }
+                              }
+                              d_test <<- discrim_test
+                              n_test <<- neutral_test
+                            },
+
+
+                            # returns prediction for a tweet 0 - discriminative, 1 - neutral
+                            predict = function(tweet)
+                            {
+                              words <- unnest_tokens(tweet, output = 'word', input = 'tweet')
+                              dfs <- list(df_discrim, df_neutral)
+                              result <- list(0, 0)
+                              
+                              current_df <- dfs[[1]]
+                              cond_prob <- 1
+                              
+                              for (row in 1:nrow(words)) {
+                                  cond_prob <- cond_prob * probab(words[row, "word"], current_df)
+                              }
+                              result[[1]] = cond_prob * is_discrim
+                              current_df <- dfs[[2]]
+                              cond_prob <- 1
+                              
+                              for (row in 1:nrow(words)) {
+                                  cond_prob <- cond_prob * probab(words[row, "word"], current_df)
+                              }
+                              result[[2]] = cond_prob * is_neutral
+                              
+                              if (result[[1]] > result[[2]]) {
+                                return(0)
+                              }
+                              return(1)
+                            },
+                            
+                            probab = function(word, current_df) {
+                              p <- which(current_df["word"] == word)
+                              denominator <- nrow(current_df) + nrow(df)
+                              if (length(p) == 0){
+                                  return(1 / denominator)
+                              }
+                              else {
+                                  return ((1 + current_df["n"][p, ]) / denominator)
+                              }
+                            },
+
+                            score = function()
+                            {
+                              neutral_f <- n_test[n_test$result == FALSE,]
+                              neutral_f_amount <- nrow(neutral_f)
+                              neutral_t_amount = nrow(n_test) - nrow(neutral_f)
+
+                              dicrim_t <- d_test[d_test$result == TRUE,]
+                              discrim_t_amount <- nrow(dicrim_t)
+                              discrim_f_amount = nrow(d_test) - nrow(dicrim_t)
+
+
+                              precision <- neutral_t_amount / (neutral_t_amount +
+                                discrim_f_amount)
+                              recall <- neutral_t_amount / (neutral_f_amount+neutral_t_amount)
+                              F1 <- 2 * (precision * recall / (precision + recall))
+
+
+                              variants <- c(discrim_t_amount, neutral_t_amount, discrim_f_amount, neutral_f_amount)
+                              par(mfrow = c(1, 2))
+                              myPalette <- brewer.pal(5, "Set2")
+
+
+                              pie(variants, labels=c("correct discrim ", "correct neutral",
+                                                    "incorrect discrim", "incorrect neutral"), border="black", col=myPalette )
+
+
+                              accuracy <- (discrim_t_amount + neutral_t_amount) / (discrim_f_amount + discrim_t_amount + neutral_f_amount + neutral_t_amount)
+                              mtrcs <- c(precision, recall, F1, accuracy)
+                              barplot(
+                                mtrcs,
+                                main = "Predictions acuraccy",
+                                xlab = "Metrics",
+                                ylab = "Values",
+                                ylim = c(0, 1),
+                                names.arg = c("Precision", "Sensitivity", "F1", "Accuracy"),
+                                col = c("blue", "blue", "yellow", "yellow"),
+                                horiz = FALSE)
+                            },
+                            
+                            frequencyofwords = function()
+                              {
+                                par(mfrow = c(1, 3))
+                              
+                                
+                              wordcloud(words = df_discrim$word, freq = df_discrim$n, min.freq = 3, max.words=100, random.order=FALSE,rot.per=0.35, colors=brewer.pal(8, "Dark2"), use.r.layout=FALSE)
+                                #wordcloud2(data=df_discrim$word, size=1.6, color='random-dark')
+                                plot.new()
+                                wordcloud(words = df_neutral$word, freq = df_neutral$n, min.freq = 3, max.words=100, random.order=FALSE,rot.per=0.35, colors=brewer.pal(8, "Dark2"), use.r.layout=FALSE)
+                                #wordcloud2(data=df_neutral$word, size=1.6, color='random-dark')
+
+                      
+                            }
+                          ))
+
+run = naiveBayes()
+run$fit()
+run$score()
+run$frequencyofwords()
+
+```
+
+## Measure effectiveness of your classifier
+-   Note that accuracy is not always a good metric for your classifier.
+-   Look at precision and recall curves, F1 score metric.
+-   Visualize them.
+-   Show failure cases.
+## Conclusions
+
+Summarize your work by explaining in a few sentences the points listed
+below.
+
+-   Describe the method implemented in general. Show what are
+    mathematical foundations you are basing your solution on.
+-   List pros and cons of the method. This should include the
+    limitations of your method, all the assumption you make about the
+    nature of your data etc.
